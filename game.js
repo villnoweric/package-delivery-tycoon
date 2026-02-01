@@ -25,6 +25,7 @@ class LogisticsGame {
             }
         };
         
+        this.starting_town_count = 2;
         this.selectedTown = null;
         this.townMarkers = {};
         
@@ -67,8 +68,8 @@ class LogisticsGame {
                 alert("Starting city not found. Defaulting to Glencoe.");
             }
             this.STARTING_LOCATION = this.STARTING_TOWNS[0].location;
-            let starting_town_count = 5;
-            while (this.STARTING_TOWNS.length < starting_town_count) {
+
+            while (this.STARTING_TOWNS.length < this.starting_town_count) {
                 this.STARTING_TOWNS.push(this.getNextNearest(this.STARTING_LOCATION, this.STARTING_TOWNS));
             }
             this.init();
@@ -158,11 +159,12 @@ class LogisticsGame {
         
         // Purchase actions
         document.getElementById('buy-depot').addEventListener('click', () => this.showDepotPurchaseModal());
-        document.getElementById('open-dms').addEventListener('click', () => this.showDMS());
         document.getElementById('buy-vehicle').addEventListener('click', () => this.showVehiclePurchaseModal());
         document.getElementById('hire-driver').addEventListener('click', () => this.showDriverHireModal());
         document.getElementById('take-loan').addEventListener('click', () => this.showLoanModal());
         document.getElementById('repay-loan').addEventListener('click', () => this.repayLoan());
+
+         document.getElementById('open-dms').addEventListener('click', () => this.showDMS());
         
         // Package filters
         document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -652,11 +654,11 @@ class LogisticsGame {
         }
         
         const locationName = document.getElementById('depot-location').value;
-        const location = this.STARTING_TOWNS.find(t => t.name === locationName);
+        const town = this.STARTING_TOWNS.find(t => t.name === locationName);
         
         const depot = {
             id: `DEPOT${Date.now()}`,
-            location: { lat: location.lat, lon: location.lon, name: location.name },
+            location: { lat: town.location[0], lon: town.location[1], name: town.name },
             capacity: 100,
             currentLoad: 0,
             configuredRoutes: [] // DMS route configurations
@@ -666,14 +668,14 @@ class LogisticsGame {
         this.state.cash -= this.DEPOT_COST;
         
         // Add marker to map
-        const marker = L.marker([location.lat, location.lon], {
+        const marker = L.marker([town.location[0], town.location[1]], {
             icon: L.divIcon({ className: 'depot-icon', html: '🏢', iconSize: [30, 30] })
         }).addTo(this.map);
-        marker.bindPopup(`<b>Depot</b><br>${location.name}`);
+        marker.bindPopup(`<b>Depot</b><br>${town.name}`);
         this.markers.push(marker);
         
         this.closeModal();
-        this.showToast(`Depot established in ${location.name}!`, 'success');
+        this.showToast(`Depot established in ${town.name}!`, 'success');
         this.updateUI();
     }
     
@@ -1385,6 +1387,26 @@ class LogisticsGame {
             }).join('');
         }
         
+        html = `
+            <h3>DMS</h3>
+            <table class="table table-bordered">
+                <thead>
+                    <th>Route</th>
+                    <th>Driver</th>
+                    <th>PU</th>
+                    <th>DEL</th>
+                    <th>HOURS</th>
+                </thead>
+                <tr>
+                    <td>TR1</td>
+                    <td>-</td>
+                    <td>15</td>
+                    <td>47</td>
+                    <td>5.7</td>
+                </tr>
+            </table>
+        `;
+
         routesList.innerHTML = html;
     }
     
@@ -1500,20 +1522,42 @@ class LogisticsGame {
     }
     
     showToast(message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
+        const template = document.createElement('template');
+        let color = 'primary';
+        switch(type){
+            case 'info':
+                color = 'primary';
+                break;
+            case 'success':
+                color = 'success';
+                break;
+            case 'warning':
+                color = 'warning';
+            case 'error':
+                color = 'danger';
+                break;
+        }
+
+        let html = `<div class="toast align-items-center mt-1 text-white bg-${color} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <div>${message}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>`;
         
-        document.getElementById('toast-container').appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 10);
-        
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        template.innerHTML = html;
+
+        let toastElement = template.content.firstChild;
+
+        document.getElementById('toast-container').appendChild(toastElement);
+
+        const toast = new bootstrap.Toast(toastElement,{
+            delay: 3000,
+            animation: true
+        });
+        toast.show();
     }
     
     showWelcomeModal() {
@@ -1536,7 +1580,7 @@ class LogisticsGame {
             </ul>
             <button onclick="game.closeModal()" class="btn-primary">Start Playing!</button>
         `;
-        this.showModal(modal);
+        //this.showModal(modal);
     }
     
     saveGame() {
